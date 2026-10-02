@@ -1,0 +1,106 @@
+classDiagram
+    direction LR
+
+    class Player {
+        <<actor>>
+        +select Difficulty Easy / Normal / Hard
+        +type guess in Enter your guess
+        +click Submit Guess 🚀
+        +click New Game 🔁
+        +toggle Show hint
+        +open Developer Debug Info
+    }
+
+    class app_py["app.py"] {
+        <<module>>
+        -str difficulty
+        -int attempt_limit = Easy 6 / Normal 8 / Hard 5
+        -int low
+        -int high
+        -str raw_guess
+        +reset_game(low: int, high: int, difficulty: str) None
+        +render_game_progress(progress_display, summary_display, attempts: int, attempt_limit: int, history: list[int], secret: int) None
+        +render_game_state(info_display, debug_display, low: int, high: int, attempt_limit: int, difficulty: str) None
+    }
+
+    class SessionState["st.session_state"] {
+        <<state>>
+        -int secret
+        -str secret_difficulty
+        -int attempts
+        -int score
+        -str status
+        -list[int] history
+        -int high_score
+    }
+
+    class logic_utils_py["logic_utils.py"] {
+        <<module>>
+        -Path DEFAULT_HIGH_SCORE_PATH
+        -int MAX_SCORE = 100
+        -dict DIFFICULTY_RANGES = Easy 1-20 / Normal 1-50 / Hard 1-100
+        +load_high_score(path: str | Path) int
+        +save_high_score(score: int, path: str | Path) int
+        +get_range_for_difficulty(difficulty: str) tuple[int, int]
+        +parse_guess(raw: str | None, low: int | None, high: int | None) tuple[bool, int | None, str | None]
+        +check_guess(guess: int, secret: int) tuple[str, str]
+        +build_guess_summary(history: list[int], secret: int) list[dict[str, int | str]]
+        +update_score(current_score: int, outcome: str, attempts_used: int, attempt_limit: int) int
+    }
+
+    class high_score_txt["high_score.txt"] {
+        <<file>>
+        -int best saved score
+    }
+
+    class test_game_logic_py["tests/test_game_logic.py"] {
+        <<test suite>>
+        -Path APP_PATH
+        -list RANGES
+        -str RANGE_ERROR
+        +load_app() AppTest
+        +assert_game_reset(at) None
+        +logic tests for all seven logic_utils functions
+        +app tests for start, win, loss, New Game, difficulty change, range, secret bounds, rejected guesses, hints
+    }
+
+    class Streamlit["streamlit"] {
+        <<framework>>
+        +st.session_state
+        +st.sidebar / st.empty / st.columns
+        +st.selectbox / st.text_input / st.button / st.checkbox
+        +st.rerun() / st.stop()
+        +streamlit.testing.v1.AppTest
+    }
+
+    class requirements_txt["requirements.txt"] {
+        <<file>>
+        -streamlit>=1.21.0
+        -altair<5
+        -pytest
+    }
+
+    class pytest_ini["pytest.ini"] {
+        <<file>>
+        -pythonpath = .
+    }
+
+    class README_md["README.md"] {
+        <<file>>
+        -pip install -r requirements.txt
+        -python -m streamlit run app.py
+    }
+
+    Player "1" --> "1" app_py : interacts through Streamlit widgets
+    app_py ..> Streamlit : renders UI with
+    app_py "1" --> "1" SessionState : reads/writes game state
+    app_py ..> logic_utils_py : imports and calls all seven functions
+    app_py --> SessionState : high_score = load_high_score() on first run
+    app_py --> SessionState : high_score = save_high_score(score) on win
+    logic_utils_py --> high_score_txt : reads/writes via DEFAULT_HIGH_SCORE_PATH
+    test_game_logic_py ..> logic_utils_py : unit tests
+    test_game_logic_py ..> app_py : UI tests via AppTest.from_file(APP_PATH)
+    test_game_logic_py ..> Streamlit : uses AppTest harness
+    pytest_ini ..> test_game_logic_py : configures import path
+    requirements_txt ..> Streamlit : declares dependency
+    README_md ..> app_py : documents setup and run
